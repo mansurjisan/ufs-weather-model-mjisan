@@ -70,13 +70,13 @@ fi
 export DATM_CDEPS=true
 export DATM_STREAM_CONFIGURE=datm.streams.coastal.IN
 export atm_datamode="ATMMESH"
-export MESH_ATM="era5_data_19941012_19941014_rot_fix_SCRIP_ESMF.nc"
-export ATM_NX_GLB=1440
-export ATM_NY_GLB=721
+export MESH_ATM="mesh_datm.nc"
+export ATM_NX_GLB=5
+export ATM_NY_GLB=3
 export EXPORT_ALL=.true.
 export FILENAME_BASE='atmmesh.'
 export STREAM_VECTORS="null"
-export stream_files="\"INPUT/era5_data_30min_obs_wind_rot_fix_filled.nc\""
+export stream_files="\"INPUT/wind.nc\""
 export stream_variables="\"u10 Sa_u10m\" \"v10 Sa_v10m\" \"msl Sa_pslv\""
 export mapalgo=redist
 export dtlimit=1.5
