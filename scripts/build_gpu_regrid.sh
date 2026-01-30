@@ -12,12 +12,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 CMEPS_DIR="${ROOT_DIR}/CMEPS-interface/CMEPS/mediator"
 
-# Load URSA GPU modules (adjust as needed for your environment)
+# Load URSA GPU modules (known working configuration)
 echo "Loading GPU modules..."
-module purge
-module load nvhpc/24.1       # NVIDIA HPC SDK
-module load cuda/12.3        # CUDA toolkit
-module load netcdf-fortran   # NetCDF for ESMF weight files
+module purge 2>/dev/null || true
+
+# Load NVIDIA HPC SDK
+echo "  Loading nvhpc/24.11..."
+module load nvhpc/24.11
+
+# Load CUDA toolkit
+echo "  Loading cuda/12.8.1..."
+module load cuda/12.8.1
+
+# Load HDF5 and NetCDF (optional but useful)
+echo "  Loading hdf5/1.14.3..."
+module load hdf5/1.14.3 2>/dev/null || echo "    HDF5 not found (optional)"
+
+echo "  Loading netcdf-c/4.9.2..."
+module load netcdf-c/4.9.2 2>/dev/null || echo "    NetCDF-C not found (optional)"
+
+echo "  Loading netcdf-fortran/4.6.1..."
+module load netcdf-fortran/4.6.1 2>/dev/null || echo "    NetCDF-Fortran not found (optional)"
+
+echo ""
+echo "Loaded modules:"
+module list 2>&1
 
 # Compiler settings
 FC=nvfortran
