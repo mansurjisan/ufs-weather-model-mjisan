@@ -126,14 +126,17 @@ contains
     mat%d_colInd = h_colInd
     mat%d_values = h_values
 
+    ! Synchronize to ensure data is on GPU
+    istat = cudaDeviceSynchronize()
+
     ! Create sparse matrix descriptor (CSR format)
     istat = cusparseCreateCsr(mat%matDescr, &
          int(nrows, c_int64_t), &
          int(ncols, c_int64_t), &
          int(nnz, c_int64_t), &
-         c_devloc(mat%d_rowPtr), &
-         c_devloc(mat%d_colInd), &
-         c_devloc(mat%d_values), &
+         c_devloc(mat%d_rowPtr(1)), &
+         c_devloc(mat%d_colInd(1)), &
+         c_devloc(mat%d_values(1)), &
          CUSPARSE_INDEX_32I, &
          CUSPARSE_INDEX_32I, &
          CUSPARSE_INDEX_BASE_ONE, &  ! Fortran 1-based indexing
@@ -144,6 +147,9 @@ contains
       write(*,'(A,I0)') 'CUSPARSE_REGRID: ERROR creating matrix descriptor, status=', istat
       return
     end if
+
+    ! Verify setup with sync
+    istat = cudaDeviceSynchronize()
 
     mat%initialized = .true.
     write(*,'(A,I0,A,I0,A,I0,A,I0)') &
@@ -250,9 +256,14 @@ contains
       write(*,'(A,I0)') 'CUSPARSE_REGRID: ERROR in SpMV, status=', istat
     end if
 
-    ! Cleanup
+    ! Sync before cleanup
+    istat = cudaDeviceSynchronize()
+
+    ! Cleanup vector descriptors
     istat = cusparseDestroyDnVec(vecDescr_src)
     istat = cusparseDestroyDnVec(vecDescr_dst)
+
+    ! Free buffer if allocated
     if (bufferSize > 0) then
       istat = cudaFree(d_buffer)
     end if
