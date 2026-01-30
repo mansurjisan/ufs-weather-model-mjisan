@@ -54,8 +54,15 @@ export LD_LIBRARY_PATH="${NVHPC_MPI_ROOT}/lib:${LD_LIBRARY_PATH}"
 # Get MPI paths from mpicc/mpifort
 MPI_INCLUDE=$(mpicc -show | grep -oE '\-I[^ ]+' | head -1 | sed 's/-I//')
 MPI_LIB_DIR=$(mpicc -show | grep -oE '\-L[^ ]+' | head -1 | sed 's/-L//')
-# Find MPI Fortran module directory (mpi.mod)
-MPI_FORT_MOD=$(dirname $(find ${NVHPC_MPI_ROOT} -name "mpi.mod" 2>/dev/null | head -1))
+
+# Find MPI Fortran module directory (mpi.mod) - search NVHPC tree
+MPI_MOD_FILE=$(find ${NVHPC_ROOT} -name "mpi.mod" 2>/dev/null | grep -v "examples" | head -1)
+if [ -z "${MPI_MOD_FILE}" ]; then
+    # Try getting from mpifort -show
+    MPI_FORT_MOD=$(mpifort -show 2>/dev/null | grep -oE '\-I[^ ]+' | sed 's/-I//g' | tr ' ' '\n' | head -1)
+else
+    MPI_FORT_MOD=$(dirname ${MPI_MOD_FILE})
+fi
 
 # NetCDF paths
 export NetCDF_C_PATH=$(nc-config --prefix)
