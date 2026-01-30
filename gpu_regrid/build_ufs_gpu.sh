@@ -41,8 +41,8 @@ export NVHPC_MPI_ROOT="${NVHPC_ROOT}/comm_libs/mpi"
 export PATH="${NVHPC_MPI_ROOT}/bin:${PATH}"
 export LD_LIBRARY_PATH="${NVHPC_MPI_ROOT}/lib:${LD_LIBRARY_PATH}"
 
-# Set ESMF path (nvhpc-built)
-export ESMFMKFILE=${NVHPC_STACK}/esmf-install/lib/libO/Linux.nvhpc.64.openmpi.default/esmf.mk
+# Set ESMF path (nvhpc-built ESMF 8.8.0)
+export ESMFMKFILE=${NVHPC_STACK}/esmf-8.8.0-install/lib/libO/Linux.nvhpc.64.openmpi.default/esmf.mk
 
 # Set NetCDF paths
 export NetCDF_ROOT=$(nc-config --prefix)
