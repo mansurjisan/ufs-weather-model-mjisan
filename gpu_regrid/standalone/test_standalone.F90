@@ -1,0 +1,178 @@
+!===============================================================================
+! Standalone Test Program for GPU Regridding
+! No CMEPS/ESMF dependencies
+!===============================================================================
+
+program test_standalone
+
+  use gpu_regrid_standalone
+
+  implicit none
+
+  integer, parameter :: R8 = selected_real_kind(15,307)
+  integer, parameter :: I4 = selected_int_kind(9)
+
+  ! Test matrix dimensions
+  integer, parameter :: SRC_SIZE = 100000
+  integer, parameter :: DST_SIZE = 500000
+  integer, parameter :: NNZ = 2000000
+  integer, parameter :: NFIELDS = 10
+
+  real(R8), allocatable :: factorList(:)
+  integer(I4), allocatable :: factorIndexList(:,:)
+  real(R8), allocatable :: src_data(:), dst_data(:), dst_ref(:)
+  real(R8), allocatable :: src_batch(:,:), dst_batch(:,:)
+
+  real(R8) :: t_start, t_end, t_gpu, t_cpu
+  real(R8) :: max_error
+  integer :: i, j, idx, rc
+  integer :: comp_src, comp_dst, mapindex
+
+  comp_src = 1
+  comp_dst = 2
+  mapindex = 1
+
+  write(*,'(A)') '================================================'
+  write(*,'(A)') ' GPU Regridding Standalone Test'
+  write(*,'(A)') '================================================'
+  write(*,'(A,I0)') ' Source grid:  ', SRC_SIZE
+  write(*,'(A,I0)') ' Dest grid:    ', DST_SIZE
+  write(*,'(A,I0)') ' Non-zeros:    ', NNZ
+  write(*,'(A)') ''
+
+  ! Allocate arrays
+  allocate(factorList(NNZ))
+  allocate(factorIndexList(2, NNZ))
+  allocate(src_data(SRC_SIZE))
+  allocate(dst_data(DST_SIZE))
+  allocate(dst_ref(DST_SIZE))
+
+  ! Generate random sparse matrix (COO format)
+  write(*,'(A)') ' Generating test sparse matrix...'
+  call random_seed()
+  do i = 1, NNZ
+    call random_number(factorList(i))
+    factorIndexList(1, i) = mod(i-1, DST_SIZE) + 1
+    factorIndexList(2, i) = mod(i*7, SRC_SIZE) + 1
+  end do
+
+  ! Generate random source data
+  call random_number(src_data)
+
+  ! Initialize GPU regridding
+  write(*,'(A)') ' Initializing GPU regrid module...'
+  call gpu_regrid_init(rc)
+  if (rc /= 0) then
+    write(*,'(A)') ' ERROR: GPU init failed'
+    stop 1
+  end if
+
+  ! Store weights
+  write(*,'(A)') ' Storing regrid weights...'
+  call gpu_regrid_store_weights(comp_src, comp_dst, mapindex, &
+       factorList, factorIndexList, SRC_SIZE, DST_SIZE, rc)
+  if (rc /= 0) then
+    write(*,'(A)') ' ERROR: Weight storage failed'
+    stop 1
+  end if
+
+  ! Compute reference solution (CPU)
+  write(*,'(A)') ' Computing CPU reference solution...'
+  dst_ref = 0.0_R8
+  call cpu_time(t_start)
+  do i = 1, NNZ
+    idx = factorIndexList(1, i)
+    j = factorIndexList(2, i)
+    dst_ref(idx) = dst_ref(idx) + factorList(i) * src_data(j)
+  end do
+  call cpu_time(t_end)
+  t_cpu = t_end - t_start
+  write(*,'(A,F10.4,A)') ' CPU time: ', t_cpu*1000.0, ' ms'
+
+  ! Apply GPU regridding
+  write(*,'(A)') ' Applying GPU regridding...'
+  dst_data = 0.0_R8
+  call cpu_time(t_start)
+  call gpu_regrid_apply(comp_src, comp_dst, mapindex, src_data, dst_data, rc)
+  call cpu_time(t_end)
+  t_gpu = t_end - t_start
+
+  if (rc /= 0) then
+    write(*,'(A)') ' ERROR: GPU regrid failed'
+    stop 1
+  end if
+
+  write(*,'(A,F10.4,A)') ' GPU time: ', t_gpu*1000.0, ' ms'
+  if (t_gpu > 0) then
+    write(*,'(A,F10.2,A)') ' Speedup:  ', t_cpu/t_gpu, 'x'
+  end if
+
+  ! Verify results
+  max_error = 0.0_R8
+  do i = 1, DST_SIZE
+    max_error = max(max_error, abs(dst_data(i) - dst_ref(i)))
+  end do
+
+  write(*,'(A)') ''
+  write(*,'(A,E12.4)') ' Max error: ', max_error
+  if (max_error < 1.0e-10) then
+    write(*,'(A)') ' PASSED: Results match CPU reference'
+  else
+    write(*,'(A)') ' WARNING: Results differ from CPU reference'
+  end if
+
+  ! Benchmark multiple iterations
+  write(*,'(A)') ''
+  write(*,'(A)') ' Benchmark (100 iterations)...'
+
+  call cpu_time(t_start)
+  do i = 1, 100
+    call gpu_regrid_apply(comp_src, comp_dst, mapindex, src_data, dst_data, rc)
+  end do
+  call cpu_time(t_end)
+  t_gpu = (t_end - t_start) / 100.0
+
+  write(*,'(A,F10.4,A)') ' Avg GPU time: ', t_gpu*1000.0, ' ms/call'
+  write(*,'(A,F10.2,A)') ' Throughput:   ', NNZ / t_gpu / 1.0e9, ' GFLOP/s'
+  if (t_gpu > 0) then
+    write(*,'(A,F10.2,A)') ' Speedup:      ', t_cpu / t_gpu, 'x (vs CPU)'
+  end if
+
+  ! Batch benchmark
+  write(*,'(A)') ''
+  write(*,'(A,I0,A)') ' Batch benchmark (', NFIELDS, ' fields, 100 iterations)...'
+
+  allocate(src_batch(SRC_SIZE, NFIELDS))
+  allocate(dst_batch(DST_SIZE, NFIELDS))
+  call random_number(src_batch)
+
+  ! Warmup
+  call gpu_regrid_apply_batch(comp_src, comp_dst, mapindex, &
+       src_batch, dst_batch, NFIELDS, rc)
+
+  call cpu_time(t_start)
+  do i = 1, 100
+    call gpu_regrid_apply_batch(comp_src, comp_dst, mapindex, &
+         src_batch, dst_batch, NFIELDS, rc)
+  end do
+  call cpu_time(t_end)
+  t_gpu = (t_end - t_start) / 100.0
+
+  write(*,'(A,F10.4,A)') ' Avg batch time:', t_gpu*1000.0, ' ms/call'
+  write(*,'(A,F10.4,A)') ' Per field:     ', t_gpu*1000.0/NFIELDS, ' ms/field'
+  write(*,'(A,F10.2,A)') ' Throughput:    ', NFIELDS * NNZ / t_gpu / 1.0e9, ' GFLOP/s'
+  if (t_gpu > 0) then
+    write(*,'(A,F10.2,A)') ' Speedup:       ', (t_cpu * NFIELDS) / t_gpu, 'x (vs CPU)'
+  end if
+
+  deallocate(src_batch, dst_batch)
+
+  ! Cleanup
+  call gpu_regrid_finalize(rc)
+  deallocate(factorList, factorIndexList, src_data, dst_data, dst_ref)
+
+  write(*,'(A)') ''
+  write(*,'(A)') ' Test completed successfully!'
+  write(*,'(A)') '================================================'
+
+end program test_standalone
