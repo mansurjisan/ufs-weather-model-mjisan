@@ -14,6 +14,7 @@ module gpu_regrid_cusparse_mod
 
   use cudafor
   use cusparse
+  use iso_c_binding, only: c_null_ptr
 
   use med_kind_mod, only : R8=>SHR_KIND_R8, I4=>SHR_KIND_I4
 
@@ -157,8 +158,8 @@ contains
     ! Apply SpMV using cuSPARSE (data already on GPU)
 
     integer, intent(in) :: comp_src, comp_dst, mapindex
-    real(R8), device, intent(in) :: d_src(:)    ! Source vector on GPU
-    real(R8), device, intent(out) :: d_dst(:)   ! Dest vector on GPU
+    real(R8), device, intent(in), contiguous :: d_src(:)    ! Source vector on GPU
+    real(R8), device, intent(inout), contiguous :: d_dst(:) ! Dest vector on GPU
     integer, intent(in) :: src_size, dst_size
     integer, intent(out) :: rc
 
@@ -168,10 +169,12 @@ contains
     real(R8) :: alpha, beta
     integer(c_size_t) :: bufferSize
     type(c_devptr) :: d_buffer
+    type(c_devptr) :: ptr_src, ptr_dst
 
     rc = 0
     alpha = 1.0_R8
     beta = 0.0_R8
+    bufferSize = 0
 
     ! Find cached matrix
     idx = find_matrix(comp_src, comp_dst, mapindex)
@@ -182,18 +185,25 @@ contains
 
     mat => gpu_matrices(idx)
 
+    ! Get device pointers
+    ptr_src = c_devloc(d_src(1))
+    ptr_dst = c_devloc(d_dst(1))
+
     ! Create dense vector descriptors
     istat = cusparseCreateDnVec(vecDescr_src, int(src_size, c_int64_t), &
-         c_devloc(d_src), CUDA_R_64F)
+         ptr_src, CUDA_R_64F)
     if (istat /= CUSPARSE_STATUS_SUCCESS) then
       rc = -2
+      write(*,'(A,I0)') 'CUSPARSE_REGRID: ERROR creating src vec, status=', istat
       return
     end if
 
     istat = cusparseCreateDnVec(vecDescr_dst, int(dst_size, c_int64_t), &
-         c_devloc(d_dst), CUDA_R_64F)
+         ptr_dst, CUDA_R_64F)
     if (istat /= CUSPARSE_STATUS_SUCCESS) then
       rc = -3
+      write(*,'(A,I0)') 'CUSPARSE_REGRID: ERROR creating dst vec, status=', istat
+      istat = cusparseDestroyDnVec(vecDescr_src)
       return
     end if
 
@@ -206,9 +216,24 @@ contains
          CUSPARSE_SPMV_ALG_DEFAULT, &
          bufferSize)
 
+    if (istat /= CUSPARSE_STATUS_SUCCESS) then
+      rc = -5
+      write(*,'(A,I0)') 'CUSPARSE_REGRID: ERROR getting buffer size, status=', istat
+      istat = cusparseDestroyDnVec(vecDescr_src)
+      istat = cusparseDestroyDnVec(vecDescr_dst)
+      return
+    end if
+
     ! Allocate buffer if needed
     if (bufferSize > 0) then
       istat = cudaMalloc(d_buffer, bufferSize)
+      if (istat /= 0) then
+        rc = -6
+        write(*,'(A,I0)') 'CUSPARSE_REGRID: ERROR allocating buffer, status=', istat
+        istat = cusparseDestroyDnVec(vecDescr_src)
+        istat = cusparseDestroyDnVec(vecDescr_dst)
+        return
+      end if
     end if
 
     ! Execute SpMV: dst = alpha * A * src + beta * dst
