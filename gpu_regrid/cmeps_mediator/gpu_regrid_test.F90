@@ -15,9 +15,10 @@ program test_gpu_regrid
   integer, parameter :: I4 = selected_int_kind(9)
 
   ! Test matrix dimensions (simulating DATM -> SCHISM regrid)
-  integer, parameter :: SRC_SIZE = 10000   ! DATM grid points
-  integer, parameter :: DST_SIZE = 50000   ! SCHISM nodes
-  integer, parameter :: NNZ = 200000       ! Non-zeros (avg 4 per dst point)
+  ! Large grid sizes representative of real coastal simulations
+  integer, parameter :: SRC_SIZE = 100000   ! DATM grid points (e.g., 0.25° global)
+  integer, parameter :: DST_SIZE = 500000   ! SCHISM nodes (high-res coastal mesh)
+  integer, parameter :: NNZ = 2000000       ! Non-zeros (avg 4 per dst point)
 
   real(R8), allocatable :: factorList(:)
   integer(I4), allocatable :: factorIndexList(:,:)
