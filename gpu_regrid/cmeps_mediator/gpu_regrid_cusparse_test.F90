@@ -24,12 +24,12 @@ program test_cusparse
   ! Host arrays
   real(R8), allocatable :: h_factorList(:)
   integer(I4), allocatable :: h_factorIndexList(:,:)
-  real(R8), allocatable :: h_src(:), h_dst(:), h_ref(:)
+  real(R8), allocatable :: h_ref(:)
   integer(I4), allocatable :: h_rowPtr(:), h_colInd(:)
   real(R8), allocatable :: h_values(:)
 
-  ! Device arrays
-  real(R8), device, allocatable :: d_src(:), d_dst(:)
+  ! Managed memory arrays (unified memory for cuSPARSE compatibility)
+  real(R8), managed, allocatable :: d_src(:), d_dst(:)
 
   real(R8) :: t_start, t_end, t_gpu, t_cpu
   real(R8) :: max_error
@@ -63,15 +63,13 @@ program test_cusparse
   ! Allocate host arrays
   allocate(h_factorList(NNZ))
   allocate(h_factorIndexList(2, NNZ))
-  allocate(h_src(SRC_SIZE))
-  allocate(h_dst(DST_SIZE))
   allocate(h_ref(DST_SIZE))
   allocate(h_rowPtr(DST_SIZE + 1))
   allocate(h_colInd(NNZ))
   allocate(h_values(NNZ))
   allocate(row_counts(DST_SIZE))
 
-  ! Allocate device arrays
+  ! Allocate managed memory arrays (accessible from both host and device)
   allocate(d_src(SRC_SIZE))
   allocate(d_dst(DST_SIZE))
 
@@ -84,8 +82,8 @@ program test_cusparse
     h_factorIndexList(2, i) = mod(i*7, SRC_SIZE) + 1  ! col
   end do
 
-  ! Generate random source data
-  call random_number(h_src)
+  ! Generate random source data (directly in managed memory)
+  call random_number(d_src)
 
   ! Convert COO to CSR
   write(*,'(A)') ' Converting COO to CSR format...'
@@ -127,21 +125,20 @@ program test_cusparse
     stop 1
   end if
 
-  ! Compute CPU reference
+  ! Compute CPU reference (d_src is managed memory, accessible from host)
   write(*,'(A)') ' Computing CPU reference solution...'
   h_ref = 0.0_R8
   call cpu_time(t_start)
   do i = 1, NNZ
     idx = h_factorIndexList(1, i)
     j = h_factorIndexList(2, i)
-    h_ref(idx) = h_ref(idx) + h_factorList(i) * h_src(j)
+    h_ref(idx) = h_ref(idx) + h_factorList(i) * d_src(j)
   end do
   call cpu_time(t_end)
   t_cpu = t_end - t_start
   write(*,'(A,F10.4,A)') ' CPU time: ', t_cpu*1000.0, ' ms'
 
-  ! Copy source data to GPU
-  d_src = h_src
+  ! Initialize destination (managed memory)
   d_dst = 0.0_R8
 
   ! First GPU call (warmup)
@@ -160,11 +157,10 @@ program test_cusparse
 
   write(*,'(A,F10.4,A)') ' GPU time (first): ', t_gpu*1000.0, ' ms'
 
-  ! Copy result back and verify
-  h_dst = d_dst
+  ! Verify results (d_dst is managed memory, accessible from host)
   max_error = 0.0_R8
   do i = 1, DST_SIZE
-    max_error = max(max_error, abs(h_dst(i) - h_ref(i)))
+    max_error = max(max_error, abs(d_dst(i) - h_ref(i)))
   end do
 
   write(*,'(A)') ''
@@ -212,7 +208,7 @@ program test_cusparse
   ! Cleanup
   call cusparse_regrid_finalize(rc)
 
-  deallocate(h_factorList, h_factorIndexList, h_src, h_dst, h_ref)
+  deallocate(h_factorList, h_factorIndexList, h_ref)
   deallocate(h_rowPtr, h_colInd, h_values)
   deallocate(d_src, d_dst)
 

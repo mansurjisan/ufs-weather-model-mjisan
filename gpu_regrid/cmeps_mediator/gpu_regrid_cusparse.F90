@@ -33,16 +33,16 @@ module gpu_regrid_cusparse_mod
   ! Maximum cached matrices
   integer, parameter :: MAX_MATRICES = 100
 
-  ! GPU matrix storage
+  ! GPU matrix storage - using managed memory for better compatibility
   type :: gpu_csr_matrix_type
     logical :: initialized = .false.
     integer :: nrows, ncols, nnz
     integer :: comp_src, comp_dst, mapindex
 
-    ! Device arrays
-    integer(I4), device, allocatable :: d_rowPtr(:)
-    integer(I4), device, allocatable :: d_colInd(:)
-    real(R8), device, allocatable :: d_values(:)
+    ! Managed memory arrays (unified memory - accessible from both host and device)
+    integer(I4), managed, allocatable :: d_rowPtr(:)
+    integer(I4), managed, allocatable :: d_colInd(:)
+    real(R8), managed, allocatable :: d_values(:)
 
     ! cuSPARSE descriptors
     type(cusparseSpMatDescr) :: matDescr
