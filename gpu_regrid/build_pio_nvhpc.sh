@@ -27,7 +27,7 @@ echo "=============================================="
 
 # Base directory
 INSTALL_BASE=/scratch5/purged/Mansur.Jisan/nvhpc_stack
-PIO_VERSION=2.6.2
+PIO_VERSION=2.6.5
 PIO_SRC=${INSTALL_BASE}/ParallelIO-pio${PIO_VERSION}
 PIO_INSTALL=${INSTALL_BASE}/pio-${PIO_VERSION}-install
 
@@ -86,7 +86,7 @@ if [ ! -d "${PIO_SRC}" ]; then
     echo "ERROR: PIO source not found at ${PIO_SRC}"
     echo "Please clone on login node first:"
     echo "  cd ${INSTALL_BASE}"
-    echo "  git clone --branch pio2_6_2 --depth 1 https://github.com/NCAR/ParallelIO.git ParallelIO-pio${PIO_VERSION}"
+    echo "  git clone --branch pio2_6_5 --recursive https://github.com/NCAR/ParallelIO.git ParallelIO-pio${PIO_VERSION}"
     exit 1
 fi
 
