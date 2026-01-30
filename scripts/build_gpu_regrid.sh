@@ -2,7 +2,7 @@
 #===============================================================================
 # Build script for GPU-accelerated regridding on NOAA URSA cluster
 #
-# Usage: ./build_gpu_regrid.sh [test|cmeps]
+# Usage: ./build_gpu_regrid.sh [test|cusparse|cmeps]
 #===============================================================================
 
 set -e
@@ -96,6 +96,47 @@ EOF
     echo "  cd $GPU_REGRID_DIR/build_gpu_test"
     echo "  srun ./test_gpu_regrid"
 
+elif [ "$BUILD_TYPE" == "cusparse" ]; then
+    #---------------------------------------------------------------------------
+    # Build cuSPARSE optimized version
+    #---------------------------------------------------------------------------
+    echo "Building cuSPARSE optimized test..."
+    echo "Source directory: $GPU_REGRID_DIR"
+
+    # Create build directory
+    mkdir -p build_cusparse_test
+    cd build_cusparse_test
+
+    # Compile modules
+    echo "  Compiling med_kind_mod (stub)..."
+    cat > med_kind_mod.F90 << 'EOF'
+module med_kind_mod
+  integer, parameter :: SHR_KIND_R8 = selected_real_kind(15,307)
+  integer, parameter :: SHR_KIND_I4 = selected_int_kind(9)
+  integer, parameter :: SHR_KIND_CL = 256
+end module med_kind_mod
+EOF
+    $FC $FFLAGS_BASE -c med_kind_mod.F90
+
+    echo "  Compiling gpu_regrid_cusparse_mod..."
+    $FC $FFLAGS_BASE $FFLAGS_CUDA -DUSE_CUSPARSE -c ../gpu_regrid_cusparse.F90
+
+    echo "  Compiling cuSPARSE test program..."
+    $FC $FFLAGS_BASE $FFLAGS_CUDA -DUSE_CUSPARSE -c ../gpu_regrid_cusparse_test.F90
+
+    echo "  Linking..."
+    $FC $FFLAGS_BASE $FFLAGS_CUDA -o test_cusparse \
+        med_kind_mod.o gpu_regrid_cusparse.o gpu_regrid_cusparse_test.o
+
+    echo ""
+    echo "Build successful!"
+    echo "Test executable: $GPU_REGRID_DIR/build_cusparse_test/test_cusparse"
+    echo ""
+    echo "To run on GPU node:"
+    echo "  salloc -p u1-h100 -N 1 --gres=gpu:h100:1 -t 0:30:00 --account=gpu-nos-surge --qos=gpu"
+    echo "  cd $GPU_REGRID_DIR/build_cusparse_test"
+    echo "  srun ./test_cusparse"
+
 elif [ "$BUILD_TYPE" == "cmeps" ]; then
     #---------------------------------------------------------------------------
     # Build with CMEPS integration
@@ -151,7 +192,11 @@ EOF
 
 else
     echo "Unknown build type: $BUILD_TYPE"
-    echo "Usage: $0 [test|cmeps]"
+    echo "Usage: $0 [test|cusparse|cmeps]"
+    echo ""
+    echo "  test     - Build OpenACC test (portable GPU)"
+    echo "  cusparse - Build cuSPARSE test (optimized NVIDIA)"
+    echo "  cmeps    - Show CMEPS integration instructions"
     exit 1
 fi
 
