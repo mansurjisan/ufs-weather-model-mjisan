@@ -2,6 +2,9 @@
 ### CMEPS compiler flags
 ###############################################################################
 
+### GPU regridding option (requires NVIDIA HPC SDK)
+option(GPU_REGRID "Enable GPU-accelerated regridding with OpenACC" OFF)
+
 if(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -g -fbacktrace -ffree-line-length-none")
   #Set CPP defintions for the ufs/cdeps_share source component of the cmeps target library
@@ -20,6 +23,17 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES "Intel")
   set(CMAKE_Fortran_LINK_FLAGS "")
   #Set CPP defintions for the ufs/cdeps_share source component of the cmeps target library
   list(APPEND CDEPS_SHARE_DEFS "CPRINTEL")
+elseif(CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC" OR CMAKE_Fortran_COMPILER_ID MATCHES "PGI")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -g -traceback")
+  set(CMAKE_Fortran_FLAGS_RELEASE "-O2")
+  set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -Mbounds -Mchkptr")
+  set(CMAKE_Fortran_LINK_FLAGS "")
+  list(APPEND CDEPS_SHARE_DEFS "CPRNVHPC")
+  if(GPU_REGRID)
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -acc -gpu=cc80,cc90 -Minfo=accel")
+    add_definitions(-DGPU_REGRID)
+    message(STATUS "GPU regridding enabled with OpenACC")
+  endif()
 else()
   message(WARNING "Fortran compiler with ID ${CMAKE_Fortran_COMPILER_ID} will be used with CMake default options")
 endif()
@@ -86,6 +100,11 @@ list(APPEND _mediator_files
 if(CDEPS_INLINE)
   list(APPEND _mediator_files CMEPS/mediator/med_phases_cdeps_mod.F90)
   add_definitions(-DCDEPS_INLINE)
+endif()
+
+if(GPU_REGRID)
+  list(APPEND _mediator_files CMEPS/mediator/gpu_regrid_mod.F90)
+  message(STATUS "Adding GPU regrid module to CMEPS build")
 endif()
 
 ###############################################################################
