@@ -10,7 +10,7 @@ set -e
 BUILD_TYPE=${1:-test}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
-CMEPS_DIR="${ROOT_DIR}/CMEPS-interface/CMEPS/mediator"
+GPU_REGRID_DIR="${ROOT_DIR}/gpu_regrid/cmeps_mediator"
 
 # Load URSA GPU modules (known working configuration)
 echo "Loading GPU modules..."
@@ -53,13 +53,14 @@ echo " Build type: $BUILD_TYPE"
 echo " GPU flags: $FFLAGS_ACC"
 echo ""
 
-cd "$CMEPS_DIR"
+cd "$GPU_REGRID_DIR"
 
 if [ "$BUILD_TYPE" == "test" ]; then
     #---------------------------------------------------------------------------
     # Build standalone test
     #---------------------------------------------------------------------------
     echo "Building standalone test..."
+    echo "Source directory: $GPU_REGRID_DIR"
 
     # Create build directory
     mkdir -p build_gpu_test
@@ -88,10 +89,11 @@ EOF
 
     echo ""
     echo "Build successful!"
-    echo "Test executable: $CMEPS_DIR/build_gpu_test/test_gpu_regrid"
+    echo "Test executable: $GPU_REGRID_DIR/build_gpu_test/test_gpu_regrid"
     echo ""
     echo "To run on GPU node:"
     echo "  salloc -p u1-h100 -N 1 --gres=gpu:1 -t 0:30:00"
+    echo "  cd $GPU_REGRID_DIR/build_gpu_test"
     echo "  srun ./test_gpu_regrid"
 
 elif [ "$BUILD_TYPE" == "cmeps" ]; then
@@ -101,9 +103,10 @@ elif [ "$BUILD_TYPE" == "cmeps" ]; then
     echo "Building with CMEPS integration..."
     echo "NOTE: This requires modifying CMEPS CMakeLists.txt"
 
+    CMEPS_DIR="${ROOT_DIR}/CMEPS-interface/CMEPS/mediator"
     # Check for CMakeLists.txt
-    if [ ! -f "../CMakeLists.txt" ]; then
-        echo "ERROR: CMEPS CMakeLists.txt not found"
+    if [ ! -f "$CMEPS_DIR/../CMakeLists.txt" ]; then
+        echo "ERROR: CMEPS CMakeLists.txt not found at $CMEPS_DIR/../CMakeLists.txt"
         exit 1
     fi
 
