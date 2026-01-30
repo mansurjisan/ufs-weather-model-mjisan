@@ -57,11 +57,11 @@ contains
   subroutine gpu_regrid_init(rc)
     ! Initialize the GPU regridding module
     ! Check for GPU availability and initialize runtime
-
-    integer, intent(out) :: rc
-
 #ifdef _OPENACC
     use openacc
+#endif
+    integer, intent(out) :: rc
+#ifdef _OPENACC
     integer :: num_devices
 #endif
 
