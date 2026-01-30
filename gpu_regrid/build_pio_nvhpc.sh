@@ -51,9 +51,11 @@ export NVHPC_MPI_ROOT="${NVHPC_ROOT}/comm_libs/mpi"
 export PATH="${NVHPC_MPI_ROOT}/bin:${PATH}"
 export LD_LIBRARY_PATH="${NVHPC_MPI_ROOT}/lib:${LD_LIBRARY_PATH}"
 
-# Get MPI paths from mpicc
+# Get MPI paths from mpicc/mpifort
 MPI_INCLUDE=$(mpicc -show | grep -oE '\-I[^ ]+' | head -1 | sed 's/-I//')
 MPI_LIB_DIR=$(mpicc -show | grep -oE '\-L[^ ]+' | head -1 | sed 's/-L//')
+# Find MPI Fortran module directory (mpi.mod)
+MPI_FORT_MOD=$(dirname $(find ${NVHPC_MPI_ROOT} -name "mpi.mod" 2>/dev/null | head -1))
 
 # NetCDF paths
 export NetCDF_C_PATH=$(nc-config --prefix)
@@ -98,6 +100,7 @@ fi
 
 echo "Configuring PIO..."
 echo "  MPI_INCLUDE: ${MPI_INCLUDE}"
+echo "  MPI_FORT_MOD: ${MPI_FORT_MOD}"
 
 FC=nvfortran CC=nvc CXX=nvc++ cmake .. \
     -DCMAKE_INSTALL_PREFIX=${PIO_INSTALL} \
@@ -113,7 +116,7 @@ FC=nvfortran CC=nvc CXX=nvc++ cmake .. \
     -DMPI_C_COMPILER=mpicc \
     -DMPI_Fortran_COMPILER=mpifort \
     -DCMAKE_C_FLAGS="-fPIC -I${MPI_INCLUDE}" \
-    -DCMAKE_Fortran_FLAGS="-fPIC -I${MPI_INCLUDE}"
+    -DCMAKE_Fortran_FLAGS="-fPIC -I${MPI_INCLUDE} -I${MPI_FORT_MOD}"
 
 echo ""
 echo "Building PIO..."
