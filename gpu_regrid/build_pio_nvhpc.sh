@@ -70,7 +70,7 @@ if [ ! -d "${PIO_SRC}" ]; then
     echo "ERROR: PIO source not found at ${PIO_SRC}"
     echo "Please clone on login node first:"
     echo "  cd ${INSTALL_BASE}"
-    echo "  git clone --branch pio${PIO_VERSION} --depth 1 https://github.com/NCAR/ParallelIO.git ParallelIO-pio${PIO_VERSION}"
+    echo "  git clone --branch pio2_6_2 --depth 1 https://github.com/NCAR/ParallelIO.git ParallelIO-pio${PIO_VERSION}"
     exit 1
 fi
 
