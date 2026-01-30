@@ -38,6 +38,7 @@ cd ${INSTALL_BASE}
 module purge
 module load nvhpc/24.11
 module load cuda/12.8.1
+module load cmake
 module load hdf5/1.14.3
 module load netcdf-c/4.9.2
 
