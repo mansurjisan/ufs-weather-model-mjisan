@@ -214,7 +214,8 @@ contains
 #ifdef _OPENACC
     if (gpu_available) then
       ! GPU path: OpenACC SpMV
-      !$acc data copyin(src_data) copyout(dst_data) &
+      ! Use present_or_* to avoid redundant transfers if data already on GPU
+      !$acc data present_or_copyin(src_data) present_or_copyout(dst_data) &
       !$acc      present(csr%rowPtr, csr%colInd, csr%values)
 
       !$acc parallel loop private(sum, jstart, jend)

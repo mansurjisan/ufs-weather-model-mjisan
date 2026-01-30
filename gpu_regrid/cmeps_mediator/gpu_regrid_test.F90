@@ -134,6 +134,29 @@ program test_gpu_regrid
 
   write(*,'(A,F10.4,A)') ' Avg GPU time: ', t_gpu*1000.0, ' ms/call'
   write(*,'(A,F10.2,A)') ' Throughput:   ', NNZ / t_gpu / 1.0e9, ' GFLOP/s'
+  write(*,'(A,F10.2,A)') ' Speedup:      ', t_cpu / t_gpu, 'x (vs CPU)'
+
+  ! Benchmark with data resident on GPU (simulates real coupled model)
+  write(*,'(A)') ''
+  write(*,'(A)') ' Benchmark with GPU-resident data (1000 iterations)...'
+
+  !$acc data copyin(src_data) create(dst_data)
+
+  call cpu_time(t_start)
+  do i = 1, 1000
+    !$acc kernels present(src_data, dst_data)
+    ! Dummy touch to ensure data stays on GPU
+    !$acc end kernels
+    call gpu_regrid_apply(comp_src, comp_dst, mapindex, src_data, dst_data, rc)
+  end do
+  call cpu_time(t_end)
+  t_gpu = (t_end - t_start) / 1000.0
+
+  !$acc end data
+
+  write(*,'(A,F10.4,A)') ' Avg GPU time: ', t_gpu*1000.0, ' ms/call'
+  write(*,'(A,F10.2,A)') ' Throughput:   ', NNZ / t_gpu / 1.0e9, ' GFLOP/s'
+  write(*,'(A,F10.2,A)') ' Speedup:      ', t_cpu / t_gpu, 'x (vs CPU)'
 
   ! Cleanup
   call gpu_regrid_finalize(rc)
