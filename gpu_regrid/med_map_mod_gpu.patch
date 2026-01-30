@@ -1,0 +1,94 @@
+diff --git a/mediator/med_map_mod.F90 b/mediator/med_map_mod.F90
+index d48f6c4..341d7b2 100644
+--- a/mediator/med_map_mod.F90
++++ b/mediator/med_map_mod.F90
+@@ -3,7 +3,7 @@ module med_map_mod
+   use med_kind_mod          , only : CX=>SHR_KIND_CX, CS=>SHR_KIND_CS, CL=>SHR_KIND_CL, R8=>SHR_KIND_R8
+   use med_kind_mod          , only : I4=>SHR_KIND_I4
+   use ESMF                  , only : ESMF_SUCCESS
+-  use ESMF                  , only : ESMF_LOGMSG_INFO, ESMF_LogWrite
++  use ESMF                  , only : ESMF_LOGMSG_INFO, ESMF_LOGMSG_WARNING, ESMF_LogWrite
+   use ESMF                  , only : ESMF_Field
+   use med_internalstate_mod , only : InternalState, logunit, maintask
+   use med_constants_mod     , only : dbug_flag => med_constants_dbug_flag
+@@ -11,9 +11,20 @@ module med_map_mod
+   use perf_mod              , only : t_startf, t_stopf
+   use shr_log_mod           , only : shr_log_error
+
++#ifdef GPU_REGRID
++  use gpu_regrid_mod        , only : gpu_regrid_init, gpu_regrid_store_weights
++  use gpu_regrid_mod        , only : gpu_regrid_apply, gpu_regrid_available
++  use gpu_regrid_mod        , only : gpu_regrid_finalize
++#endif
++
+   implicit none
+   private
+
++#ifdef GPU_REGRID
++  ! GPU regridding module state
++  logical, save :: gpu_regrid_initialized = .false.
++#endif
++
+   ! public routines
+   public :: med_map_routehandles_init
+   public :: med_map_rh_is_created
+@@ -21,6 +32,9 @@ module med_map_mod
+   public :: med_map_field_packed
+   public :: med_map_field_normalized
+   public :: med_map_field
++#ifdef GPU_REGRID
++  public :: med_map_gpu_finalize
++#endif
+
+   interface med_map_routehandles_init
+      module procedure med_map_routehandles_initfrom_esmflds  ! called from med.F90
+@@ -124,6 +138,24 @@ contains
+        call ESMF_LogWrite(trim(subname)//": start", ESMF_LOGMSG_INFO)
+     endif
+
++#ifdef GPU_REGRID
++    ! Initialize GPU regridding module
++    if (.not. gpu_regrid_initialized) then
++       block
++         integer :: gpu_rc
++         call gpu_regrid_init(gpu_rc)
++         if (gpu_rc == 0) then
++            gpu_regrid_initialized = .true.
++            call ESMF_LogWrite('GPU regridding module initialized successfully', ESMF_LOGMSG_INFO)
++            if (maintask) write(logunit,'(A)') ' GPU regridding module initialized'
++         else
++            call ESMF_LogWrite('GPU regridding init failed, using CPU fallback', ESMF_LOGMSG_WARNING)
++            if (maintask) write(logunit,'(A)') ' GPU regridding init failed, using CPU'
++         end if
++       end block
++    end if
++#endif
++
+     ! Get the internal state from Component.
+     nullify(is_local%wrap)
+     call ESMF_GridCompGetInternalState(gcomp, is_local, rc)
+@@ -1670,4 +1702,24 @@ contains
+
+   end subroutine med_map_uv_cart3d
+
++#ifdef GPU_REGRID
++  !================================================================================
++  subroutine med_map_gpu_finalize(rc)
++    !---------------------------------------------------
++    ! Finalize GPU regridding module and release resources
++    !---------------------------------------------------
++
++    integer, intent(out) :: rc
++
++    rc = ESMF_SUCCESS
++
++    if (gpu_regrid_initialized) then
++       call gpu_regrid_finalize(rc)
++       gpu_regrid_initialized = .false.
++       if (maintask) write(logunit,'(A)') ' GPU regridding module finalized'
++    end if
++
++  end subroutine med_map_gpu_finalize
++#endif
++
+ end module med_map_mod
