@@ -24,6 +24,10 @@ program test_gpu_regrid
   integer(I4), allocatable :: factorIndexList(:,:)
   real(R8), allocatable :: src_data(:), dst_data(:), dst_ref(:)
 
+  ! For batch test (multiple fields)
+  integer, parameter :: NFIELDS = 10  ! Typical: T, S, u, v, ssh, etc.
+  real(R8), allocatable :: src_batch(:,:), dst_batch(:,:)
+
   real(R8) :: t_start, t_end, t_gpu, t_cpu
   real(R8) :: max_error
   integer :: i, j, idx, rc
@@ -157,6 +161,35 @@ program test_gpu_regrid
   write(*,'(A,F10.4,A)') ' Avg GPU time: ', t_gpu*1000.0, ' ms/call'
   write(*,'(A,F10.2,A)') ' Throughput:   ', NNZ / t_gpu / 1.0e9, ' GFLOP/s'
   write(*,'(A,F10.2,A)') ' Speedup:      ', t_cpu / t_gpu, 'x (vs CPU)'
+
+  ! Batch benchmark (multiple fields at once - typical for coupled models)
+  write(*,'(A)') ''
+  write(*,'(A,I0,A)') ' Batch benchmark (', NFIELDS, ' fields, 100 iterations)...'
+
+  allocate(src_batch(SRC_SIZE, NFIELDS))
+  allocate(dst_batch(DST_SIZE, NFIELDS))
+
+  ! Initialize batch data
+  call random_number(src_batch)
+
+  ! Warmup
+  call gpu_regrid_apply_batch(comp_src, comp_dst, mapindex, &
+       src_batch, dst_batch, NFIELDS, rc)
+
+  call cpu_time(t_start)
+  do i = 1, 100
+    call gpu_regrid_apply_batch(comp_src, comp_dst, mapindex, &
+         src_batch, dst_batch, NFIELDS, rc)
+  end do
+  call cpu_time(t_end)
+  t_gpu = (t_end - t_start) / 100.0
+
+  write(*,'(A,F10.4,A)') ' Avg batch time:', t_gpu*1000.0, ' ms/call'
+  write(*,'(A,F10.4,A)') ' Per field:     ', t_gpu*1000.0/NFIELDS, ' ms/field'
+  write(*,'(A,F10.2,A)') ' Throughput:    ', NFIELDS * NNZ / t_gpu / 1.0e9, ' GFLOP/s'
+  write(*,'(A,F10.2,A)') ' Speedup:       ', (t_cpu * NFIELDS) / t_gpu, 'x (vs CPU)'
+
+  deallocate(src_batch, dst_batch)
 
   ! Cleanup
   call gpu_regrid_finalize(rc)

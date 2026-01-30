@@ -20,6 +20,7 @@ module gpu_regrid_mod
   public :: gpu_regrid_init
   public :: gpu_regrid_store_weights
   public :: gpu_regrid_apply
+  public :: gpu_regrid_apply_batch   ! New: batch multiple fields
   public :: gpu_regrid_available
   public :: gpu_regrid_finalize
 
@@ -247,6 +248,74 @@ contains
 #endif
 
   end subroutine gpu_regrid_apply
+
+  !===============================================================================
+  subroutine gpu_regrid_apply_batch(comp_src, comp_dst, mapindex, &
+       src_data, dst_data, nfields, rc)
+    ! Apply GPU regridding to multiple fields at once (batch mode)
+    ! More efficient than calling gpu_regrid_apply multiple times
+
+    integer, intent(in) :: comp_src, comp_dst, mapindex
+    real(R8), intent(in) :: src_data(:,:)    ! (src_size, nfields)
+    real(R8), intent(out) :: dst_data(:,:)   ! (dst_size, nfields)
+    integer, intent(in) :: nfields
+    integer, intent(out) :: rc
+
+    integer :: idx, i, j, k, jstart, jend
+    type(csr_matrix_type), pointer :: csr
+    real(R8) :: sum
+
+    rc = 0
+
+    ! Find cached CSR matrix
+    idx = find_cached_matrix(comp_src, comp_dst, mapindex)
+    if (idx < 0) then
+      rc = -1
+      write(*,'(A)') 'GPU_REGRID: ERROR - No cached matrix found for batch'
+      return
+    end if
+
+    csr => csr_cache(idx)
+
+#ifdef _OPENACC
+    if (gpu_available) then
+      ! GPU path: Process all fields in parallel
+      !$acc data present_or_copyin(src_data) present_or_copyout(dst_data) &
+      !$acc      present(csr%rowPtr, csr%colInd, csr%values)
+
+      !$acc parallel loop collapse(2) private(sum, jstart, jend)
+      do k = 1, nfields
+        do i = 1, csr%nrows
+          sum = 0.0_R8
+          jstart = csr%rowPtr(i)
+          jend = csr%rowPtr(i+1) - 1
+          !$acc loop reduction(+:sum)
+          do j = jstart, jend
+            sum = sum + csr%values(j) * src_data(csr%colInd(j), k)
+          end do
+          dst_data(i, k) = sum
+        end do
+      end do
+      !$acc end parallel loop
+
+      !$acc end data
+    else
+#endif
+      ! CPU fallback path
+      do k = 1, nfields
+        do i = 1, csr%nrows
+          sum = 0.0_R8
+          do j = csr%rowPtr(i), csr%rowPtr(i+1) - 1
+            sum = sum + csr%values(j) * src_data(csr%colInd(j), k)
+          end do
+          dst_data(i, k) = sum
+        end do
+      end do
+#ifdef _OPENACC
+    end if
+#endif
+
+  end subroutine gpu_regrid_apply_batch
 
   !===============================================================================
   logical function gpu_regrid_available(comp_src, comp_dst, mapindex)
