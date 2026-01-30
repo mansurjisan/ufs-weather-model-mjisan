@@ -51,6 +51,10 @@ export NVHPC_MPI_ROOT="${NVHPC_ROOT}/comm_libs/mpi"
 export PATH="${NVHPC_MPI_ROOT}/bin:${PATH}"
 export LD_LIBRARY_PATH="${NVHPC_MPI_ROOT}/lib:${LD_LIBRARY_PATH}"
 
+# Get MPI paths from mpicc
+MPI_INCLUDE=$(mpicc -show | grep -oE '\-I[^ ]+' | head -1 | sed 's/-I//')
+MPI_LIB_DIR=$(mpicc -show | grep -oE '\-L[^ ]+' | head -1 | sed 's/-L//')
+
 # NetCDF paths
 export NetCDF_C_PATH=$(nc-config --prefix)
 export NetCDF_Fortran_PATH=${NETCDF_FORTRAN_ROOT}
@@ -84,10 +88,21 @@ rm -rf build
 mkdir -p build
 cd build
 
+# Check for genf90 (must be pre-cloned on login node)
+if [ ! -d "${PIO_SRC}/src/flib/genf90/src/genf90" ]; then
+    echo "ERROR: genf90 not found. Please clone on login node first:"
+    echo "  cd ${PIO_SRC}"
+    echo "  git clone https://github.com/PARALLELIO/genf90.git src/flib/genf90/src/genf90"
+    exit 1
+fi
+
 echo "Configuring PIO..."
+echo "  MPI_INCLUDE: ${MPI_INCLUDE}"
+
 FC=nvfortran CC=nvc CXX=nvc++ cmake .. \
     -DCMAKE_INSTALL_PREFIX=${PIO_INSTALL} \
     -DUSER_CMAKE_MODULE_PATH=${PIO_SRC}/cmake/CMake_Fortran_utils \
+    -DGENF90_PATH=${PIO_SRC}/src/flib/genf90/src/genf90 \
     -DPIO_ENABLE_FORTRAN=ON \
     -DPIO_ENABLE_TIMING=OFF \
     -DPIO_ENABLE_TESTS=OFF \
@@ -95,11 +110,10 @@ FC=nvfortran CC=nvc CXX=nvc++ cmake .. \
     -DPIO_ENABLE_DOC=OFF \
     -DNetCDF_C_PATH=${NetCDF_C_PATH} \
     -DNetCDF_Fortran_PATH=${NetCDF_Fortran_PATH} \
-    -DHDF5_PATH=${HDF5_PATH} \
     -DMPI_C_COMPILER=mpicc \
     -DMPI_Fortran_COMPILER=mpifort \
-    -DCMAKE_C_FLAGS="-fPIC" \
-    -DCMAKE_Fortran_FLAGS="-fPIC"
+    -DCMAKE_C_FLAGS="-fPIC -I${MPI_INCLUDE}" \
+    -DCMAKE_Fortran_FLAGS="-fPIC -I${MPI_INCLUDE}"
 
 echo ""
 echo "Building PIO..."
