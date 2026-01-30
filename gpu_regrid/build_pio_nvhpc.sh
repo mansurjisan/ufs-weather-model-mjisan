@@ -87,6 +87,7 @@ cd build
 echo "Configuring PIO..."
 FC=nvfortran CC=nvc CXX=nvc++ cmake .. \
     -DCMAKE_INSTALL_PREFIX=${PIO_INSTALL} \
+    -DUSER_CMAKE_MODULE_PATH=${PIO_SRC}/cmake/CMake_Fortran_utils \
     -DPIO_ENABLE_FORTRAN=ON \
     -DPIO_ENABLE_TIMING=OFF \
     -DPIO_ENABLE_TESTS=OFF \
