@@ -35,40 +35,58 @@ UFS_DIR=/scratch5/purged/Mansur.Jisan/ufs-weather-model-mjisan
 GPU_REGRID_ROOT=/scratch5/purged/Mansur.Jisan/nvhpc_stack/gpu_regrid
 
 #==============================================================================
-# Load spack-stack environment (GCC-based)
+# Load spack-stack environment (GCC-based) - Official URSA config
 #==============================================================================
 echo ""
-echo "Loading spack-stack environment..."
+echo "Loading URSA spack-stack environment..."
 
-# URSA spack-stack module path
 module purge
-module use /apps/modules/spack-stack/modulefiles/core
 
-# Load spack-stack gcc environment
-# Note: Adjust this based on what's available on URSA
-# Common pattern: spack-stack/1.x.y or compiler/gcc/x.y.z first
-module load stack-intel/2022.1.0  2>/dev/null || \
-module load stack-gcc/11.3.0      2>/dev/null || \
-module load gcc/11.3.0            2>/dev/null || \
-echo "Warning: Could not find standard spack-stack module"
+# Use official URSA spack-stack path
+module use /contrib/spack-stack/spack-stack-1.9.2/envs/ue-gcc-12.4.0/install/modulefiles/Core
 
-# Load required libraries from spack-stack
-module load cmake 2>/dev/null || true
-module load netcdf-c 2>/dev/null || true
-module load netcdf-fortran 2>/dev/null || true
-module load esmf 2>/dev/null || true
-module load pio 2>/dev/null || true
+# Load GCC stack
+module load stack-gcc/12.4.0
+module load stack-openmpi/4.1.6
+
+# Load cmake
+module load cmake/3.27.9
+
+# Load UFS dependencies from spack-stack
+module load jasper/2.0.32
+module load libpng/1.6.37
+module load hdf5/1.14.3
+module load netcdf-c/4.9.2
+module load netcdf-fortran/4.6.1
+module load parallelio/2.6.2
+module load esmf/8.8.0
+module load fms/2024.02
+module load bacio/2.4.1
+module load sp/2.5.0
+module load w3emc/2.10.0
 
 # Also load nvhpc for GPU regrid runtime
 module load nvhpc/24.11
 module load cuda/12.8.1
 
+# Set MPI wrappers
+export MPI_CC=mpicc
+export MPI_CXX=mpic++
+export MPI_FC=mpifort
+export FC=mpifort
+export CC=mpicc
+export CXX=mpic++
+
+# Set cmake platform
+export CMAKE_Platform=ursa.gnu
+
 echo ""
 echo "Environment:"
-echo "  Compiler:        $(gfortran --version 2>/dev/null | head -1 || echo 'N/A')"
+echo "  Compiler:        $(mpifort --version 2>/dev/null | head -1 || echo 'N/A')"
 echo "  ESMFMKFILE:      ${ESMFMKFILE:-not set}"
 echo "  GPU_REGRID_ROOT: ${GPU_REGRID_ROOT}"
 echo ""
+module list
 
 #==============================================================================
 # Verify GPU regrid library
@@ -96,9 +114,12 @@ echo "=============================================="
 echo "Running CMake..."
 echo "=============================================="
 
-# Get NVHPC library paths for linking GPU regrid
+# Get NVHPC library paths for linking GPU regrid runtime
 NVHPC_ROOT=$(dirname $(dirname $(which nvfortran)))
 NVHPC_LIB="${NVHPC_ROOT}/compilers/lib"
+
+# Export GPU_REGRID_ROOT for CMake to detect
+export GPU_REGRID_ROOT=${GPU_REGRID_ROOT}
 
 cmake .. \
   -DAPP=CSTLS \
@@ -107,7 +128,11 @@ cmake .. \
   -DOLDIO=ON \
   -DCMAKE_BUILD_TYPE=Release \
   -DGPU_REGRID=ON \
+  -DGPU_REGRID_CINTEROP=ON \
   -DGPU_REGRID_ROOT=${GPU_REGRID_ROOT} \
+  -DCMAKE_C_COMPILER=mpicc \
+  -DCMAKE_CXX_COMPILER=mpic++ \
+  -DCMAKE_Fortran_COMPILER=mpifort \
   -DCMAKE_EXE_LINKER_FLAGS="-L${GPU_REGRID_ROOT}/lib -lgpu_regrid -L${NVHPC_LIB} -lnvf -lacchost -laccdevice -Wl,-rpath,${GPU_REGRID_ROOT}/lib -Wl,-rpath,${NVHPC_LIB}" \
   2>&1 | tee cmake_output.log
 
