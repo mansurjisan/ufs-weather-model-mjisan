@@ -25,9 +25,12 @@ echo "Job ID: ${SLURM_JOB_ID}"
 echo "Date:   $(date)"
 echo "=============================================="
 
-# Source directory (where this script lives)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Source directory - use absolute path for SLURM compatibility
+UFS_ROOT=/scratch5/purged/Mansur.Jisan/ufs-weather-model-mjisan
+SCRIPT_DIR=${UFS_ROOT}/gpu_regrid/lib
 cd ${SCRIPT_DIR}
+
+echo "Working directory: $(pwd)"
 
 # Install location
 INSTALL_DIR=/scratch5/purged/Mansur.Jisan/nvhpc_stack/gpu_regrid
