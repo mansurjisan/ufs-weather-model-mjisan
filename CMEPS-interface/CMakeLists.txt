@@ -2,8 +2,18 @@
 ### CMEPS compiler flags
 ###############################################################################
 
-### GPU regridding option (requires NVIDIA HPC SDK)
-option(GPU_REGRID "Enable GPU-accelerated regridding with OpenACC" OFF)
+### GPU regridding option
+option(GPU_REGRID "Enable GPU-accelerated regridding" OFF)
+option(GPU_REGRID_CINTEROP "Use C interop with external GPU library (for GCC/Intel builds)" OFF)
+
+# Auto-detect GPU_REGRID_ROOT for hybrid builds
+if(GPU_REGRID AND DEFINED ENV{GPU_REGRID_ROOT})
+  set(GPU_REGRID_ROOT $ENV{GPU_REGRID_ROOT} CACHE PATH "Path to GPU regrid library")
+  if(NOT CMAKE_Fortran_COMPILER_ID MATCHES "NVHPC")
+    set(GPU_REGRID_CINTEROP ON CACHE BOOL "Use C interop for GPU regrid" FORCE)
+    message(STATUS "GPU_REGRID: Using C interop with library at ${GPU_REGRID_ROOT}")
+  endif()
+endif()
 
 if(CMAKE_Fortran_COMPILER_ID MATCHES "GNU")
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -g -fbacktrace -ffree-line-length-none")
@@ -103,8 +113,17 @@ if(CDEPS_INLINE)
 endif()
 
 if(GPU_REGRID)
-  list(APPEND _mediator_files CMEPS/mediator/gpu_regrid_mod.F90)
-  message(STATUS "Adding GPU regrid module to CMEPS build")
+  if(GPU_REGRID_CINTEROP)
+    # Use C interop version for GCC/Intel builds with external GPU library
+    list(APPEND _mediator_files CMEPS/mediator/gpu_regrid_mod_cinterop.F90)
+    message(STATUS "Adding GPU regrid module (C interop) to CMEPS build")
+    add_definitions(-DGPU_REGRID -DGPU_REGRID_CINTEROP)
+  else()
+    # Use native OpenACC version for NVHPC builds
+    list(APPEND _mediator_files CMEPS/mediator/gpu_regrid_mod.F90)
+    message(STATUS "Adding GPU regrid module (OpenACC) to CMEPS build")
+    add_definitions(-DGPU_REGRID)
+  endif()
 endif()
 
 ###############################################################################
@@ -208,6 +227,18 @@ target_link_libraries(cmeps PUBLIC esmf
                                    PIO::PIO_Fortran)
 if(OpenMP_Fortran_FOUND)
   target_link_libraries(cmeps PRIVATE OpenMP::OpenMP_Fortran)
+endif()
+
+# Link external GPU regrid library for C interop builds
+if(GPU_REGRID AND GPU_REGRID_CINTEROP)
+  if(DEFINED GPU_REGRID_ROOT)
+    target_include_directories(cmeps PRIVATE ${GPU_REGRID_ROOT}/include)
+    target_link_directories(cmeps PRIVATE ${GPU_REGRID_ROOT}/lib)
+    target_link_libraries(cmeps PRIVATE gpu_regrid)
+    message(STATUS "Linking GPU regrid library from ${GPU_REGRID_ROOT}")
+  else()
+    message(WARNING "GPU_REGRID_CINTEROP enabled but GPU_REGRID_ROOT not set")
+  endif()
 endif()
 
 ### Set dependency for CDEPS if inline capability is requested

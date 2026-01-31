@@ -24,24 +24,60 @@ using OpenACC for portable GPU acceleration.
 gpu_regrid/
 ├── README.md                          # This file
 ├── CMEPS_INTEGRATION.md               # Step-by-step CMEPS integration guide
+├── lib/                               # C-interop shared library (for hybrid builds)
+│   ├── gpu_regrid_c_interface.F90    # Fortran module with C bindings
+│   ├── gpu_regrid.h                  # C header file
+│   ├── build_gpu_regrid_lib.sh       # Build script for shared library
+│   └── test_c_interface.c            # C test program
+├── cmeps/
+│   └── gpu_regrid_cmeps.F90          # CMEPS integration wrapper
 ├── cmeps_mediator/
 │   ├── gpu_regrid_mod.F90            # OpenACC-based GPU regrid module
 │   ├── gpu_regrid_test.F90           # Standalone test program
 │   └── gpu_regrid_cusparse.F90       # cuSPARSE version (experimental)
+├── build_esmf_8.8.sh                  # ESMF 8.8.0 build with NVHPC
+├── build_pio_nvhpc.sh                 # PIO build with NVHPC (may fail)
+├── build_ufs_gpu.sh                   # Full NVHPC UFS build
+├── build_ufs_gcc_with_gpu_regrid.sh   # Hybrid GCC + GPU library build
 └── (see also)
     ├── ../GPU_REGRID_DESIGN.md       # Detailed design document
-    └── ../scripts/build_gpu_regrid.sh # Build script for URSA
+    ├── ../CMEPS-interface/CMEPS/mediator/gpu_regrid_mod.F90         # OpenACC version
+    └── ../CMEPS-interface/CMEPS/mediator/gpu_regrid_mod_cinterop.F90 # C interop version
 ```
 
 ## Installation
 
-### Option 1: Copy to CMEPS mediator directory
+### Option 1: Hybrid Build (Recommended for Production)
+
+Build GPU regrid as a separate library with NVHPC, then link from GCC/Intel-compiled UFS.
+This is the recommended approach as PIO has compatibility issues with nvfortran.
 
 ```bash
-cp gpu_regrid/cmeps_mediator/*.F90 CMEPS-interface/CMEPS/mediator/
+# 1. Build the GPU regrid shared library with NVHPC
+cd gpu_regrid/lib
+sbatch build_gpu_regrid_lib.sh
+
+# 2. Build UFS with GCC spack-stack + GPU regrid library
+export GPU_REGRID_ROOT=/scratch5/purged/Mansur.Jisan/nvhpc_stack/gpu_regrid
+cd ..
+sbatch build_ufs_gcc_with_gpu_regrid.sh
 ```
 
-### Option 2: Build standalone test
+### Option 2: Full NVHPC Build (Experimental)
+
+Build entire UFS with NVHPC. Requires building all dependencies (ESMF, PIO, etc.) with NVHPC.
+Note: PIO has known issues with nvfortran's int64 handling.
+
+```bash
+# Build all dependencies with NVHPC first
+sbatch gpu_regrid/build_esmf_8.8.sh
+sbatch gpu_regrid/build_pio_nvhpc.sh  # May fail due to nvfortran issues
+
+# Build UFS
+sbatch gpu_regrid/build_ufs_gpu.sh
+```
+
+### Option 3: Standalone Test Only
 
 ```bash
 ./scripts/build_gpu_regrid.sh test
@@ -72,9 +108,19 @@ Key steps:
 
 ## Requirements
 
-- NVIDIA HPC SDK (nvfortran with OpenACC)
+### For Hybrid Build (Recommended)
+- GCC or Intel compiler (for UFS)
+- NVIDIA HPC SDK 24.x (for GPU regrid library)
 - CUDA Toolkit 12.x
 - NVIDIA GPU (tested on H100, supports cc80/cc90)
+- spack-stack environment (provides ESMF, PIO, NetCDF, etc.)
+
+### For Full NVHPC Build
+- NVIDIA HPC SDK (nvfortran with OpenACC)
+- CUDA Toolkit 12.x
+- ESMF 8.8.0+ built with NVHPC
+- PIO 2.6.x built with NVHPC (has compatibility issues)
+- NetCDF-Fortran built with NVHPC
 
 ## API Reference
 
