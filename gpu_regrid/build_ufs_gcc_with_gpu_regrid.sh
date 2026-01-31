@@ -65,17 +65,23 @@ module load bacio/2.4.1
 module load sp/2.5.0
 module load w3emc/2.10.0
 
-# Also load nvhpc for GPU regrid runtime
+# Save GCC MPI wrapper paths BEFORE loading nvhpc
+GCC_MPI_ROOT=$(dirname $(which mpifort))
+export GCC_MPICC="${GCC_MPI_ROOT}/mpicc"
+export GCC_MPICXX="${GCC_MPI_ROOT}/mpic++"
+export GCC_MPIFORT="${GCC_MPI_ROOT}/mpifort"
+
+# Load nvhpc/cuda for GPU regrid runtime libraries only
 module load nvhpc/24.11
 module load cuda/12.8.1
 
-# Set MPI wrappers
-export MPI_CC=mpicc
-export MPI_CXX=mpic++
-export MPI_FC=mpifort
-export FC=mpifort
-export CC=mpicc
-export CXX=mpic++
+# Set compilers to use GCC MPI wrappers (not nvhpc)
+export MPI_CC="${GCC_MPICC}"
+export MPI_CXX="${GCC_MPICXX}"
+export MPI_FC="${GCC_MPIFORT}"
+export FC="${GCC_MPIFORT}"
+export CC="${GCC_MPICC}"
+export CXX="${GCC_MPICXX}"
 
 # Set cmake platform
 export CMAKE_Platform=ursa.gnu
@@ -130,9 +136,9 @@ cmake .. \
   -DGPU_REGRID=ON \
   -DGPU_REGRID_CINTEROP=ON \
   -DGPU_REGRID_ROOT=${GPU_REGRID_ROOT} \
-  -DCMAKE_C_COMPILER=mpicc \
-  -DCMAKE_CXX_COMPILER=mpic++ \
-  -DCMAKE_Fortran_COMPILER=mpifort \
+  -DCMAKE_C_COMPILER="${GCC_MPICC}" \
+  -DCMAKE_CXX_COMPILER="${GCC_MPICXX}" \
+  -DCMAKE_Fortran_COMPILER="${GCC_MPIFORT}" \
   -DCMAKE_EXE_LINKER_FLAGS="-L${GPU_REGRID_ROOT}/lib -lgpu_regrid -L${NVHPC_LIB} -lnvf -lacchost -laccdevice -Wl,-rpath,${GPU_REGRID_ROOT}/lib -Wl,-rpath,${NVHPC_LIB}" \
   2>&1 | tee cmake_output.log
 
