@@ -24,7 +24,7 @@ module gpu_regrid_c_interface
     logical :: on_device = .false.
   end type csr_matrix
 
-  type(csr_matrix), save :: weight_matrices(MAX_MAPS)
+  type(csr_matrix), save, target :: weight_matrices(MAX_MAPS)
   integer, save :: n_matrices = 0
   logical, save :: initialized = .false.
 
