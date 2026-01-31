@@ -138,6 +138,7 @@ FC=nvfortran CC=nvc CXX=nvc++ cmake .. \
     -DPIO_ENABLE_TESTS=OFF \
     -DPIO_ENABLE_EXAMPLES=OFF \
     -DPIO_ENABLE_DOC=OFF \
+    -DWITH_PNETCDF=OFF \
     -DNetCDF_C_PATH=${NetCDF_C_PATH} \
     -DNetCDF_Fortran_PATH=${NetCDF_Fortran_PATH} \
     -DMPI_C_COMPILER=mpicc \
