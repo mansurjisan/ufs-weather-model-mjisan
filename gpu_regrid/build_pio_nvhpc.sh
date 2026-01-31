@@ -71,6 +71,24 @@ export NetCDF_C_PATH=$(nc-config --prefix)
 export NetCDF_Fortran_PATH=${NETCDF_FORTRAN_ROOT}
 export HDF5_PATH=$(h5cc -showconfig | grep "Installation point" | awk '{print $3}')
 
+# Create pkg-config file for nvhpc netcdf-fortran (PIO 2.6.9 uses pkg-config)
+mkdir -p ${NETCDF_FORTRAN_ROOT}/lib/pkgconfig
+cat > ${NETCDF_FORTRAN_ROOT}/lib/pkgconfig/netcdf-fortran.pc << PKGEOF
+prefix=${NETCDF_FORTRAN_ROOT}
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: NetCDF-Fortran
+Description: NetCDF Fortran library
+Version: 4.6.1
+Libs: -L\${libdir} -lnetcdff
+Cflags: -I\${includedir}
+Requires: netcdf
+PKGEOF
+
+export PKG_CONFIG_PATH="${NETCDF_FORTRAN_ROOT}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+
 echo ""
 echo "Environment:"
 echo "  Compiler:      $(nvfortran --version | head -1)"
