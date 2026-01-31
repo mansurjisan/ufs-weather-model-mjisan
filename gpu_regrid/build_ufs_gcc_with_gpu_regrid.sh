@@ -108,6 +108,14 @@ echo "GPU regrid library found."
 source ${GPU_REGRID_ROOT}/setup_gpu_regrid.sh
 
 #==============================================================================
+# Copy GPU regrid C interop source to CMEPS (since it's in a submodule)
+#==============================================================================
+echo ""
+echo "Copying GPU regrid C interop source to CMEPS..."
+cp ${UFS_DIR}/gpu_regrid/cmeps_src/gpu_regrid_mod_cinterop.F90 \
+   ${UFS_DIR}/CMEPS-interface/CMEPS/mediator/
+
+#==============================================================================
 # Build UFS
 #==============================================================================
 cd ${UFS_DIR}
