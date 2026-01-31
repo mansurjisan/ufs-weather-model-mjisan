@@ -31,7 +31,7 @@ echo "Date:   $(date)"
 echo "=============================================="
 
 # Directories
-UFS_DIR=/scratch5/purged/Mansur.Jisan/ufs-weather-model
+UFS_DIR=/scratch5/purged/Mansur.Jisan/ufs-weather-model-mjisan
 GPU_REGRID_ROOT=/scratch5/purged/Mansur.Jisan/nvhpc_stack/gpu_regrid
 
 #==============================================================================
