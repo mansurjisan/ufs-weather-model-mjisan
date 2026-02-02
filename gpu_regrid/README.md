@@ -148,7 +148,3 @@ end if
 ! Cleanup
 call gpu_regrid_finalize(rc)
 ```
-
-## Author
-
-GPU acceleration prototype for UFS coastal coupling (SCHISM + WW3 + DATM).
