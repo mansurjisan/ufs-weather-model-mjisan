@@ -103,6 +103,14 @@ else(USE_WWM)
 endif(USE_WWM)
 set_target_properties(schism PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mod)
 target_include_directories(schism PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/mod> $<INSTALL_INTERFACE:mod>)
+
+# One-way NWM river forcing: the source/sink injection in core/hydro gets
+# -DUSE_NUOPC_RIVER via define_opt (SCHISM/src), but the NUOPC cap
+# (schism_nuopc_cap.F90) is compiled into the 'schism' target here, so add the
+# definition explicitly to keep the #ifdef USE_NUOPC_RIVER cap code in sync.
+if(USE_NUOPC_RIVER)
+  target_compile_definitions(schism PRIVATE USE_NUOPC_RIVER)
+endif()
 list(APPEND schism_libs esmf)
 if(NOT NO_PARMETIS)
   list(APPEND schism_libs parmetis metis)
