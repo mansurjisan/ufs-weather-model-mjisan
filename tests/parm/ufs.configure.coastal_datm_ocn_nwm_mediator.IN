@@ -1,0 +1,92 @@
+logKindFlag:            ESMF_LOGKIND_MULTI
+globalResourceControl:  true
+
+#######################################################################
+# coastal: DATM + SCHISM(OCN) + dnwm(ROF) -- via the CMEPS mediator
+# (NWM plays the ROF role; river_volume_flux is routed ROF->MED->OCN
+#  with mapfcopy/redist by the coastal field-exchange rulebook).
+#######################################################################
+EARTH_component_list: MED ATM OCN ROF
+EARTH_attributes::
+  Verbosity = 0
+::
+
+# MED #
+MED_model:                      @[med_model]
+MED_petlist_bounds:             @[med_petlist_bounds]
+MED_omp_num_threads:            1
+MED_attributes::
+  ATM_model = @[atm_model]
+  OCN_model = @[ocn_model]
+  ROF_model = @[nwm_model]
+  history_n = 1
+  history_option = nhours
+  history_ymd = -999
+  coupling_mode = coastal
+::
+
+# ATM #
+ATM_model:                      @[atm_model]
+ATM_petlist_bounds:             @[atm_petlist_bounds]
+ATM_omp_num_threads:            1
+ATM_attributes::
+  Verbosity = 0
+::
+
+# OCN #
+OCN_model:                      @[ocn_model]
+OCN_petlist_bounds:             @[ocn_petlist_bounds]
+OCN_omp_num_threads:            1
+OCN_attributes::
+  Verbosity = 0
+  DumpFields = false
+  ProfileMemory = false
+  OverwriteSlice = true
+  meshloc = @[meshloc]
+  CouplingConfig = @[coupling_config]
+  river_stub_q = @[river_stub_q]
+  nwm_coupling = true
+::
+
+# ROF (dnwm data component playing the runoff role) #
+ROF_model:                      @[nwm_model]
+ROF_petlist_bounds:             @[nwm_petlist_bounds]
+ROF_omp_num_threads:            1
+ROF_attributes::
+  Verbosity = 0
+::
+
+runSeq::
+@[coupling_interval_slow]
+  ATM -> MED :remapMethod=redist
+  ROF -> MED :remapMethod=redist
+  MED med_phases_post_atm
+  MED med_phases_post_rof
+  OCN -> MED :remapMethod=redist
+  MED med_phases_post_ocn
+  MED med_phases_prep_atm
+  MED med_phases_prep_ocn_accum
+  MED med_phases_prep_ocn_avg
+  MED -> ATM :remapMethod=redist
+  MED -> OCN :remapMethod=redist
+  ATM
+  ROF
+  OCN
+@
+::
+
+ALLCOMP_attributes::
+  ScalarFieldCount = 3
+  ScalarFieldIdxGridNX = 1
+  ScalarFieldIdxGridNY = 2
+  ScalarFieldName = cpl_scalars
+  start_type = startup
+  restart_dir = RESTART/
+  case_name = ufs.cpld
+  restart_n = 12
+  restart_option = never
+  restart_ymd = -999
+  stop_n = @[stop_n]
+  stop_option = nhours
+  stop_ymd = -999
+::
