@@ -1,0 +1,42 @@
+logKindFlag:            ESMF_LOGKIND_MULTI
+globalResourceControl:  true
+EARTH_component_list: OCN NWM
+EARTH_attributes::
+  Verbosity = 0
+::
+OCN_model:                      schism
+OCN_petlist_bounds:             0 3
+OCN_omp_num_threads:            1
+OCN_attributes::
+  Verbosity = 0
+  meshloc = element
+  CouplingConfig = none
+  river_stub_q = 7.0
+  nwm_coupling = true
+::
+NWM_model:                      dnwm
+NWM_petlist_bounds:             4 5
+NWM_omp_num_threads:            1
+NWM_attributes::
+  Verbosity = 0
+::
+runSeq::
+@1800
+  NWM
+  NWM -> OCN :remapMethod=redist
+  OCN
+@
+::
+ALLCOMP_attributes::
+  ScalarFieldCount = 0
+  ScalarFieldName = cpl_scalars
+  start_type = startup
+  restart_dir = RESTART/
+  case_name = ufs.cpld
+  restart_n = 12
+  restart_option = never
+  restart_ymd = -999
+  stop_n = 1
+  stop_option = nhours
+  stop_ymd = -999
+::

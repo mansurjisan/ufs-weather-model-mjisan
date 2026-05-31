@@ -25,6 +25,8 @@ HGRID   = sys.argv[1] if len(sys.argv) > 1 else \
 OUTDIR  = sys.argv[2] if len(sys.argv) > 2 else "/mnt/d/ufs-weather-model/phase0_nwm_out"
 NSRC    = 6          # number of source elements to select
 QTEST   = 100.0      # constant test discharge per source element [m3/s]
+WETMIN  = 2.0        # [m] every node of a source element must be deeper than this
+                     # (must exceed the expected tidal drawdown to stay wet)
 START   = "2008-08-23 00:00:00"   # run start; hourly axis spanning the 24h window+
 NT      = 49         # hourly steps (covers a 48h window, > the 24h run)
 
@@ -54,18 +56,23 @@ for e in range(ne):
     cx[e] = xlon[nd].mean(); cy[e] = ylat[nd].mean()
     cdep[e] = dp[nd].mean(); mindep[e] = dp[nd].min()
 
-# ---- select source elements: wet (mean depth>0) shoreline (>=1 node depth<=0),
-#      spread across the domain by longitude -------------------------------
-wet_shore = np.where((cdep > 0.0) & (mindep <= 0.0))[0]
-if wet_shore.size < NSRC:                          # fallback: wettest elements
-    wet_shore = np.argsort(cdep)[::-1][:max(NSRC, 50)]
-order = wet_shore[np.argsort(cx[wet_shore])]
+# ---- select source elements: FULLY WET -- every member node deeper than WETMIN,
+#      spread across the domain by longitude. A source element with ANY dry/shallow
+#      node triggers SCHISM drying/wetting instability under sustained discharge
+#      (validated: the partly-dry head made WL plunge and oscillate; the v3 re-carve
+#      had to move the head to an all-nodes-wet element). Require the element's
+#      MINIMUM node depth to exceed WETMIN, not merely a wet element-mean. ---------
+deep = np.where(mindep > WETMIN)[0]
+if deep.size < NSRC:                               # fallback: elements with the deepest min-node
+    deep = np.argsort(mindep)[::-1][:max(NSRC, 50)]
+order = deep[np.argsort(cx[deep])]
 pick  = order[np.linspace(0, order.size - 1, NSRC).round().astype(int)]
 src_eid = np.sort(np.unique(pick)) + 1             # -> 1-based global element ids
+assert (mindep[src_eid - 1] > 0.0).all(), "a selected source still has a dry node"
 print(f"selected {src_eid.size} source elements (1-based global ids): {list(src_eid)}")
 for eid in src_eid:
     e = eid - 1
-    print(f"   elem {eid:6d}  center=({cx[e]:.4f},{cy[e]:.4f})  meandep={cdep[e]:.2f} m")
+    print(f"   elem {eid:6d}  center=({cx[e]:.4f},{cy[e]:.4f})  meandep={cdep[e]:.2f} m  mindep={mindep[e]:.2f} m")
 
 # ---- 1. element ESMF mesh (natural order => seqindex == global elem id) -----
 mpath = f"{OUTDIR}/schism_elem_ESMFmesh.nc"
