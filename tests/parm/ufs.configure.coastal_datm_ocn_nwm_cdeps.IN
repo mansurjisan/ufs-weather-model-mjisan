@@ -73,6 +73,7 @@ NWM_attributes::
   DumpFields = false
   ProfileMemory = false
   OverwriteSlice = true
+  logfile = dnwm.log
 ::
 
 # Run Sequence (one-way: NWM -> OCN direct redist; MED handles ATM<->OCN) #

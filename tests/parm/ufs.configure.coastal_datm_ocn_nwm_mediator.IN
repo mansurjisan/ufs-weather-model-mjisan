@@ -54,7 +54,11 @@ ROF_petlist_bounds:             @[nwm_petlist_bounds]
 ROF_omp_num_threads:            1
 ROF_attributes::
   Verbosity = 0
+  logfile = dnwm.log
 ::
+# NOTE: on this mediator route set advance_to_next_time = .true. in dnwm_in
+# (the standard CDEPS next-time convention; the mediator consumes the export
+# at a later phase). The direct-connector route uses the default .false.
 
 runSeq::
 @@[coupling_interval_slow_sec]
