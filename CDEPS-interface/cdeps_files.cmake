@@ -80,6 +80,10 @@ list(APPEND cdeps_drof_files
   CDEPS/drof/rof_comp_nuopc.F90
 )
 
+list(APPEND cdeps_dnwm_files
+  CDEPS/dnwm/nwm_comp_nuopc.F90
+)
+
 list(APPEND cdeps_dwav_files
   CDEPS/dwav/wav_comp_nuopc.F90
 )

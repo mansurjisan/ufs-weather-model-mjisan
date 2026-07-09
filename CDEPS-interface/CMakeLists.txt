@@ -87,6 +87,14 @@ target_include_directories(drof PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY
 target_link_libraries(drof PRIVATE dshr share streams)
 target_link_libraries(drof PRIVATE esmf)
 
+# CDEPS/dnwm (data NWM river component for one-way NWM -> SCHISM forcing)
+add_library(dnwm OBJECT ${cdeps_dnwm_files})
+add_dependencies(dnwm share streams dshr)
+set_target_properties(dnwm PROPERTIES Fortran_MODULE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/mod)
+target_include_directories(dnwm PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/mod>)
+target_link_libraries(dnwm PRIVATE dshr share streams)
+target_link_libraries(dnwm PRIVATE esmf)
+
 # CDEPS/dwav
 add_library(dwav OBJECT ${cdeps_dwav_files})
 add_dependencies(dwav share streams dshr)
@@ -112,6 +120,7 @@ add_library(cdeps STATIC $<TARGET_OBJECTS:share>
                          $<TARGET_OBJECTS:dlnd>
                          $<TARGET_OBJECTS:docn>
                          $<TARGET_OBJECTS:drof>
+                         $<TARGET_OBJECTS:dnwm>
                          $<TARGET_OBJECTS:dwav>
                          $<TARGET_OBJECTS:dglc>)
 add_library(cdeps::cdeps ALIAS cdeps)

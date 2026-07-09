@@ -1,0 +1,121 @@
+#############################################
+####  NEMS Run-Time Configuration File  #####
+#############################################
+#
+# Full one-way NWM river coupling: DATM + SCHISM(OCN) + NWM(dnwm) + MED.
+# The dnwm CDEPS data component exports `river_volume_flux` [m3 s-1] per source
+# element; a direct NWM -> OCN redist connector delivers it to the SCHISM cap,
+# which reads it (USE_NUOPC_RIVER) into the source/sink buffer. One-way only:
+# nothing is exported back to NWM. Requires the executable built with
+# -DUSE_NUOPC_RIVER=ON, param.nml if_source=1, a source_sink.in, and a dnwm
+# stream + element ESMFmesh (model_meshfile) whose element ids == SCHISM global
+# element ids (see NWM_RIVER_INCREMENT1_VALIDATION.md / Phase 0 pairing).
+# (For the SCHISM-side stub with no dnwm, use ufs.configure.coastal_datm_ocn_nwm.IN.)
+#
+
+# ESMF #
+logKindFlag:            ESMF_LOGKIND_MULTI
+globalResourceControl:  true
+
+# EARTH #
+EARTH_component_list: ATM OCN NWM MED
+EARTH_attributes::
+  Verbosity = 0
+::
+
+# MED #
+MED_model:                      @[med_model]
+MED_petlist_bounds:             @[med_petlist_bounds]
+MED_omp_num_threads:            @[med_omp_num_threads]
+MED_attributes::
+  ATM_model = @[atm_model]
+  OCN_model = @[ocn_model]
+  history_n = 1
+  history_option = nhours
+  history_ymd = -999
+  coupling_mode = @[CPLMODE]
+::
+
+# ATM #
+ATM_model:                      @[atm_model]
+ATM_petlist_bounds:             @[atm_petlist_bounds]
+ATM_omp_num_threads:            @[atm_omp_num_threads]
+ATM_attributes::
+  Verbosity = 0
+  DumpFields = false
+  ProfileMemory = false
+  OverwriteSlice = true
+::
+
+# OCN #
+OCN_model:                      @[ocn_model]
+OCN_petlist_bounds:             @[ocn_petlist_bounds]
+OCN_omp_num_threads:            @[ocn_omp_num_threads]
+OCN_attributes::
+  Verbosity = 0
+  DumpFields = false
+  ProfileMemory = false
+  OverwriteSlice = true
+  meshloc = @[meshloc]
+  CouplingConfig = @[coupling_config]
+  river_stub_q = @[river_stub_q]
+  nwm_coupling = true
+::
+
+# NWM (CDEPS dnwm data-river component) #
+# nwm_model MUST resolve to "dnwm" (the driver adds the component only for
+# trim(model)=="dnwm"); any other value silently drops the component.
+NWM_model:                      @[nwm_model]
+NWM_petlist_bounds:             @[nwm_petlist_bounds]
+NWM_omp_num_threads:            @[nwm_omp_num_threads]
+NWM_attributes::
+  Verbosity = 0
+  DumpFields = false
+  ProfileMemory = false
+  OverwriteSlice = true
+  logfile = dnwm.log
+::
+
+# Run Sequence (one-way: NWM -> OCN direct redist; MED handles ATM<->OCN) #
+runSeq::
+@@[coupling_interval_slow_sec]
+  ATM -> MED :remapMethod=redist
+  MED med_phases_post_atm
+  OCN -> MED :remapMethod=redist
+  MED med_phases_post_ocn
+  MED med_phases_prep_atm
+  MED med_phases_prep_ocn_accum
+  MED med_phases_prep_ocn_avg
+  MED -> ATM :remapMethod=redist
+  MED -> OCN :remapMethod=redist
+  ATM
+  NWM
+  NWM -> OCN :remapMethod=redist
+  OCN
+  MED med_phases_history_write
+  MED med_phases_restart_write
+@
+::
+
+ALLCOMP_attributes::
+  ScalarFieldCount = 3
+  ScalarFieldIdxGridNX = 1
+  ScalarFieldIdxGridNY = 2
+  ScalarFieldIdxNextSwCday = 3
+  ScalarFieldName = cpl_scalars
+  start_type = @[RUNTYPE]
+  restart_dir = RESTART/
+  case_name = @[casename]
+  restart_n = @[RESTART_N]
+  restart_option = nhours
+  restart_ymd = -999
+  orb_eccen = 1.e36
+  orb_iyear = 2000
+  orb_iyear_align = 2000
+  orb_mode = fixed_year
+  orb_mvelp = 1.e36
+  orb_obliq = 1.e36
+  stop_n = @[FHMAX]
+  stop_option = nhours
+  stop_ymd = -999
+::

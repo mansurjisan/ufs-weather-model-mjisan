@@ -1,0 +1,9 @@
+&dnwm_nml
+  datamode = "copyall"
+  model_meshfile = "INPUT/@[MESH_NWM]"
+  model_maskfile = "INPUT/@[MESH_NWM]"
+  nx_global = @[NWM_NX_GLB]
+  ny_global = 1
+  restfilm = "null"
+  skip_restart_read = .true.
+/

@@ -96,6 +96,10 @@ field_dictionary:
       canonical_units: kg m-2 s-1
       description: atmosphere export
     #
+    - standard_name: river_volume_flux
+      canonical_units: m3 s-1
+      description: NWM (dnwm) data-river export - volumetric river discharge per SCHISM source element (one-way NWM -> SCHISM forcing)
+    #
     - standard_name: Faxa_snow
       alias: inst_fprec_rate
       canonical_units: kg m-2 s-1
