@@ -84,6 +84,16 @@ endif(MPI)
 # User option to build utilities
 set(BUILD_UTILITIES OFF CACHE BOOL "Build the ADCIRC utility programs")
 
+# One-way NWM river forcing through the NUOPC/CDEPS stack. Opt in with
+# -DUSE_NUOPC_RIVER=ON on the cmake command line (the root CMakeLists.txt
+# reports it). It is applied to the whole 'adcirc' target below, because both
+# the fixed-form core guards (src/global.F, src/cstart.F, src/hstart.F,
+# src/timestep.F) and the free-form NUOPC cap (thirdparty/nuopc/adc_cap.F90)
+# are compiled into that single target.
+if(USE_NUOPC_RIVER AND NOT COUPLED)
+  message(WARNING "USE_NUOPC_RIVER has no effect without COUPLED=ON (the NUOPC cap supplies the river data)")
+endif()
+
 ###############################################################################
 ### Set variables
 ###############################################################################
@@ -191,6 +201,11 @@ target_include_directories(adcirc PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINAR
 target_include_directories(adcirc PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/mod)
 set_target_properties(adcirc PROPERTIES COMPILE_FLAGS "${Fortran_LINELENGTH_FLAG} ${Fortran_COMPILER_SPECIFIC_FLAG}")
 target_compile_definitions(adcirc PRIVATE ${LOCAL_COMPILER_DEFINITIONS})
+# One-way NWM river forcing: enables the #ifdef USE_NUOPC_RIVER regions in the
+# core (fort.20 bypass) and in the NUOPC cap (QNIN fill from river_volume_flux).
+if(USE_NUOPC_RIVER)
+  target_compile_definitions(adcirc PRIVATE USE_NUOPC_RIVER)
+endif()
 target_link_libraries(adcirc PUBLIC esmf $<TARGET_OBJECTS:version> $<TARGET_OBJECTS:mkdir>)
 # mpi support
 if(ADCIRC_CONFIG STREQUAL "PADCIRC" OR ADCIRC_CONFIG STREQUAL "PADCSWAN" OR ADCIRC_CONFIG STREQUAL "PUNSWAN")

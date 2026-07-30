@@ -2,14 +2,24 @@
 ####  NEMS Run-Time Configuration File  #####
 #############################################
 #
-# Full one-way NWM river coupling: DATM + SCHISM(OCN) + NWM(dnwm) + MED.
-# The dnwm CDEPS data component exports `river_volume_flux` [m3 s-1] per source
-# element; a direct NWM -> OCN redist connector delivers it to the SCHISM cap,
-# which reads it (USE_NUOPC_RIVER) into the source/sink buffer. One-way only:
-# nothing is exported back to NWM. Requires the executable built with
-# -DUSE_NUOPC_RIVER=ON, param.nml if_source=1, a source_sink.in, and a dnwm
-# stream + element ESMFmesh (model_meshfile) whose element ids == SCHISM global
-# element ids (see NWM_RIVER_INCREMENT1_VALIDATION.md / Phase 0 pairing).
+# Full one-way NWM river coupling: DATM + OCN + NWM(dnwm) + MED. OCN-model
+# agnostic -- every directive below is templated, so this file serves both
+# ocn_model=schism and ocn_model=adcirc.
+#
+# The dnwm CDEPS data component exports `river_volume_flux` [m3 s-1] per mesh
+# entity; a direct NWM -> OCN redist connector delivers it to the ocean cap,
+# which reads it (USE_NUOPC_RIVER). One-way only: nothing is exported back to
+# NWM. Requires the executable built with -DUSE_NUOPC_RIVER=ON and a dnwm stream
+# + ESMFmesh (model_meshfile) obeying the redist id contract, which is per ocean
+# model:
+#   schism: one dnwm entity per SCHISM global ELEMENT id; also needs param.nml
+#           if_source=1 and a source_sink.in
+#           (see NWM_RIVER_INCREMENT1_VALIDATION.md / Phase 0 pairing).
+#   adcirc: one dnwm entity per ADCIRC global NODE id (natural order 1..NP);
+#           also needs an IBTYPE 22/32 normal-flux boundary string in fort.14
+#           (see ADCIRC_NWM_RIVER_FORCING.md).
+# The OCN attributes `river_stub_q` and `nwm_coupling` below are read only by the
+# ocean cap that recognizes them; a cap that does not query them ignores them.
 # (For the SCHISM-side stub with no dnwm, use ufs.configure.coastal_datm_ocn_nwm.IN.)
 #
 
@@ -77,6 +87,20 @@ NWM_attributes::
 ::
 
 # Run Sequence (one-way: NWM -> OCN direct redist; MED handles ATM<->OCN) #
+#
+# NOTE (runSeq order depends on the OCN cap's checkImport behavior):
+# The order below (NWM advances BEFORE the NWM -> OCN connector) works for
+# SCHISM because its CheckImportRiver specialization exempts the river field
+# from the strict NUOPC timestamp check (zero-order hold). A cap that uses
+# NUOPC's DEFAULT strict checkImport -- ADCIRC does -- will abort with
+# "NUOPC INCOMPATIBILITY DETECTED: Import Fields not at current time",
+# because on a direct connector nothing re-stamps the export and NUOPC
+# stamps a model's export at the END of its advance. For the ADCIRC route:
+#   1) move NWM to the END of the slot:   NWM -> OCN; OCN; ...; NWM
+#   2) set advance_to_next_time = .true. in dnwm_in
+# so window k consumes the export stamped at the start of window k with the
+# value valid at that same time (zero lag). Validated in the ADCIRC runtime
+# demos (see ADCIRC_NWM_RIVER_FORCING.md, section 5).
 runSeq::
 @@[coupling_interval_slow_sec]
   ATM -> MED :remapMethod=redist

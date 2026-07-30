@@ -92,6 +92,21 @@ set(PDLIB_BT4       OFF CACHE BOOL "Enable Domain Decomposition in WW3 via PDLIB
 set(CDEPS_INLINE    OFF CACHE BOOL "Enable CDEPS inline capability")
 set(HYDRO           OFF CACHE BOOL "Enable hydrostatic set")
 
+# One-way NWM (dnwm) river forcing through the NUOPC/CDEPS stack. Opt in with
+# -DUSE_NUOPC_RIVER=ON on the cmake command line; it is consumed by
+# SCHISM-interface (source/sink fill) and by ADCIRC-interface (specified normal
+# flux fill at the IBTYPE 22/32 boundaries, replacing fort.20).
+# SCHISM/src also declares this name through its define_opt() macro; because
+# option() never overwrites an existing cache entry, declaring it here first is
+# a no-op for the SCHISM build (define_opt resolves to OFF by default either
+# way) and makes the flag visible to ccmake/cmake-gui like every other option.
+set(USE_NUOPC_RIVER OFF CACHE BOOL "Enable one-way NWM (dnwm) river forcing into SCHISM/ADCIRC")
+
+message("USE_NUOPC_RIVER .. ${USE_NUOPC_RIVER}")
+if(USE_NUOPC_RIVER AND NOT ADCIRC AND NOT SCHISM)
+  message(WARNING "USE_NUOPC_RIVER=ON has no effect unless ADCIRC or SCHISM is enabled")
+endif()
+
 set(CMAKE_Platform $ENV{CMAKE_Platform})
 if(CMAKE_Platform)
   message("")

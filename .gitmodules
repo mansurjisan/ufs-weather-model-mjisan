@@ -56,7 +56,7 @@
   branch = emc/develop
 [submodule "ADCIRC"]
   path = ADCIRC-interface/ADCIRC
-  url = https://github.com/oceanmodeling/adcirc
+  url = https://github.com/mansurjisan/adcirc
   branch = feature/coastal_app
 [submodule "SCHISM"]
   path = SCHISM-interface/SCHISM
